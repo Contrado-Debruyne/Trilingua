@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1116">
+<title>Trilingua — Spanish · German · Japanese</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{
+  --bg:#0E1116; --surface:#171C24; --raised:#1F2630; --line:#2A3340;
+  --text:#E9EDF2; --muted:#8A94A3; --ok:#51CF66; --bad:#FF6B6B;
+  --acc:#FFA94D; --acc-dim:rgba(255,169,77,.14);
+  --radius:16px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.5; overscroll-behavior-y:none}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button{font:inherit; color:inherit; background:none; border:none; cursor:pointer}
+input{font:inherit}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+header{position:sticky; top:0; z-index:10; background:linear-gradient(var(--bg) 70%,transparent);
+  padding:calc(10px + env(safe-area-inset-top)) 18px 8px; display:flex; align-items:center; gap:12px}
+.brand{font-weight:800; letter-spacing:-.03em; font-size:1.15rem}
+.brand span{color:var(--acc)}
+.hstats{margin-left:auto; display:flex; gap:14px; align-items:center; font-size:.82rem; color:var(--muted)}
+.hstat b{color:var(--text); font-weight:700}
+.ring{position:relative; width:36px; height:36px}
+.ring svg{transform:rotate(-90deg)}
+.ring .lvl{position:absolute; inset:0; display:grid; place-items:center; font-size:.72rem; font-weight:800}
+
+/* views */
+main{padding:6px 18px 20px; max-width:640px; margin:0 auto}
+.view{display:none; animation:fade .18s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+
+h2{font-size:1.35rem; font-weight:800; letter-spacing:-.02em; margin:14px 0 10px}
+h3{font-size:1rem; margin:18px 0 8px; color:var(--muted); font-weight:600;
+   text-transform:uppercase; letter-spacing:.08em; font-size:.75rem}
+.sub{color:var(--muted); font-size:.9rem; margin:2px 0 14px}
+
+/* language cards */
+.langgrid{display:grid; gap:12px}
+.langcard{position:relative; overflow:hidden; text-align:left; width:100%;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px; display:flex; flex-direction:column; gap:2px; transition:border-color .15s}
+.langcard.sel{border-color:var(--acc); background:linear-gradient(135deg,var(--acc-dim),var(--surface) 55%)}
+.langcard .glyph{position:absolute; right:-6px; bottom:-26px; font-size:6.5rem; font-weight:800;
+  opacity:.10; line-height:1; pointer-events:none}
+.langcard .lname{font-weight:800; font-size:1.1rem}
+.langcard .lmeta{font-size:.8rem; color:var(--muted)}
+.langcard .chip{position:absolute; top:14px; right:14px; font-size:.7rem; font-weight:700;
+  padding:3px 9px; border-radius:99px; background:var(--acc-dim); color:var(--acc)}
+
+/* generic cards & rows */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px}
+.row{display:flex; align-items:center; gap:12px}
+.grow{flex:1; min-width:0}
+.bar{height:6px; border-radius:99px; background:var(--raised); overflow:hidden}
+.bar i{display:block; height:100%; background:var(--acc); border-radius:99px; transition:width .3s}
+.pill{font-size:.72rem; font-weight:700; padding:2px 8px; border-radius:99px; background:var(--raised); color:var(--muted); white-space:nowrap}
+.pill.due{background:var(--acc-dim); color:var(--acc)}
+
+/* buttons */
+.btn{display:block; width:100%; text-align:center; padding:14px; border-radius:14px; font-weight:700;
+  background:var(--acc); color:#10131A; transition:transform .06s}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--raised); color:var(--text); border:1px solid var(--line)}
+.btn:disabled{opacity:.4}
+.iconbtn{width:38px; height:38px; border-radius:12px; background:var(--raised); border:1px solid var(--line);
+  display:grid; place-items:center; font-size:1rem; flex:none}
+
+/* grammar list */
+.gcat{margin-bottom:4px}
+.grule{width:100%; text-align:left; background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:13px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px}
+.grule .t{font-weight:600; font-size:.95rem}
+.grule .m{font-size:.75rem; color:var(--muted)}
+.mastery{width:44px; flex:none; text-align:right; font-size:.8rem; font-weight:700; color:var(--acc)}
+.lvltag{font-size:.68rem; font-weight:700; color:var(--muted); border:1px solid var(--line);
+  border-radius:6px; padding:1px 5px; flex:none}
+
+/* grammar detail */
+.gbody{white-space:pre-line; font-size:.95rem}
+.example{display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line)}
+.example .fx{font-weight:600}
+.example .tx{font-size:.85rem; color:var(--muted)}
+.back{color:var(--acc); font-weight:700; font-size:.9rem; padding:8px 0; display:inline-block}
+
+/* vocab */
+.vocabrow{display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line)}
+.vocabrow .w{font-weight:600}
+.vocabrow .r{font-size:.78rem; color:var(--acc)}
+.vocabrow .t{font-size:.85rem; color:var(--muted)}
+.addform{display:grid; gap:10px}
+.addform input{background:var(--raised); border:1px solid var(--line); border-radius:12px;
+  padding:12px 14px; color:var(--text); width:100%}
+.addform input:focus{outline:2px solid var(--acc); border-color:transparent}
+#vq{width:100%; background:var(--raised); border:1px solid var(--line); border-radius:12px;
+  color:var(--ink); padding:12px 14px; font-size:1rem; margin-bottom:10px}
+#vq:focus{outline:2px solid var(--acc); border-color:transparent}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px}
+.chips .chip{background:var(--raised); border:1px solid var(--line); color:var(--muted);
+  border-radius:999px; padding:6px 12px; font-size:.78rem; font-weight:600}
+.chips .chip.on{background:var(--acc); border-color:var(--acc); color:#0E1116}
+.del{color:var(--bad); font-size:.8rem; font-weight:700; padding:6px}
+
+/* practice */
+.qcard{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px 18px; text-align:center}
+.qprompt{font-size:1.5rem; font-weight:800; letter-spacing:-.01em; margin:10px 0 4px; word-break:break-word}
+.qhint{color:var(--muted); font-size:.85rem; margin-bottom:6px}
+.qtype{font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--acc)}
+.opts{display:grid; gap:10px; margin-top:18px}
+.opt{padding:14px; border-radius:14px; background:var(--raised); border:1px solid var(--line);
+  font-weight:600; text-align:left; transition:border-color .1s}
+.opt.correct{border-color:var(--ok); background:rgba(81,207,102,.12); color:var(--ok)}
+.opt.wrong{border-color:var(--bad); background:rgba(255,107,107,.10); color:var(--bad)}
+.opt:disabled{opacity:.85}
+.typein{width:100%; margin-top:18px; background:var(--raised); border:1px solid var(--line);
+  border-radius:14px; padding:14px; color:var(--text); text-align:center; font-size:1.1rem}
+.feedback{margin-top:14px; font-weight:700; min-height:24px}
+.feedback.ok{color:var(--ok)} .feedback.bad{color:var(--bad)}
+.progressline{display:flex; align-items:center; gap:10px; margin:6px 0 14px; font-size:.8rem; color:var(--muted)}
+.sessiondone{text-align:center; padding:30px 10px}
+.sessiondone .big{font-size:3rem}
+.stampwrap{display:grid; place-items:center; margin:10px 0}
+.stamp{width:110px; height:110px; border:3px solid var(--acc); border-radius:50%; display:grid; place-items:center;
+  color:var(--acc); font-weight:800; transform:rotate(-8deg); animation:stampin .4s cubic-bezier(.2,1.4,.4,1)}
+@keyframes stampin{from{transform:rotate(-8deg) scale(2.2); opacity:0} to{transform:rotate(-8deg) scale(1); opacity:1}}
+
+/* tab bar */
+nav{position:fixed; left:0; right:0; bottom:0; z-index:20; display:flex; justify-content:space-around;
+  background:rgba(14,17,22,.92); backdrop-filter:blur(12px); border-top:1px solid var(--line);
+  padding:8px 4px calc(8px + env(safe-area-inset-bottom))}
+nav button{display:flex; flex-direction:column; align-items:center; gap:3px; font-size:.68rem; font-weight:600;
+  color:var(--muted); padding:4px 14px; border-radius:12px}
+nav button.on{color:var(--acc)}
+nav .ic{font-size:1.25rem; line-height:1}
+nav button:focus-visible,.btn:focus-visible,.opt:focus-visible,.grule:focus-visible,.langcard:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+
+.toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--raised);
+  border:1px solid var(--acc); color:var(--text); padding:10px 18px; border-radius:99px; font-size:.85rem;
+  font-weight:600; z-index:30; animation:fade .2s ease}
+.empty{color:var(--muted); text-align:center; padding:26px 10px; font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Tri<span>lingua</span></div>
+  <div class="hstats">
+    <div class="hstat">🔥 <b id="hstreak" class="num">0</b></div>
+    <div class="hstat"><b id="hdue" class="num">0</b> due</div>
+    <div class="ring">
+      <svg width="36" height="36" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15" fill="none" stroke="var(--raised)" stroke-width="4"/>
+        <circle id="ringbar" cx="18" cy="18" r="15" fill="none" stroke="var(--acc)" stroke-width="4"
+          stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/>
+      </svg>
+      <div class="lvl num" id="hlevel">1</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="view-home" class="view active"></section>
+  <section id="view-grammar" class="view"></section>
+  <section id="view-vocab" class="view"></section>
+  <section id="view-practice" class="view"></section>
+</main>
+
+<nav>
+  <button data-tab="home" class="on"><span class="ic">🏠</span>Home</button>
+  <button data-tab="grammar"><span class="ic">📖</span>Grammar</button>
+  <button data-tab="vocab"><span class="ic">🗂️</span>Vocab</button>
+  <button data-tab="practice"><span class="ic">⚡</span>Practice</button>
+</nav>
+
+<script src="data.js"></script>
+<script src="grammar_adv.js"></script>
+<script src="vocab_big.js"></script>
+<script src="app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+}
+</script>
+</body>
+</html>
