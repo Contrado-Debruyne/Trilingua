@@ -337,7 +337,8 @@ function renderPracticeStart() {
         <span class="sub" style="margin:0">plus grammar drills from your weakest rules</span></div>
     </div>
     <button class="btn" onclick="startSession('mix')">Start session</button>
-    <button class="btn ghost" style="margin-top:10px" onclick="startSession('grammar')">Grammar-only session</button>`;
+    <button class="btn ghost" style="margin-top:10px" onclick="startSession('grammar')">Grammar-only session</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="startSession('build')">Sentence building</button>`;
 }
 
 function pickGrammarQs(n, onlyRule) {
@@ -367,11 +368,22 @@ function pickVocabQs(n) {
 }
 function shuffle(a) { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
+function pickBuildQs(n) {
+  if (typeof SENTENCES === "undefined") return [];
+  const cap = Math.ceil(P().level / 2);
+  const pool = SENTENCES[S.lang].filter(s => s.level <= cap);
+  // weakest linked rules first, so mistakes steer what you build next
+  const scored = pool.map(s => ({ s, m: mastery(s.rule) ?? -1 }));
+  scored.sort((a, b) => a.m - b.m || Math.random() - 0.5);
+  return scored.slice(0, n).map(x => ({ kind: "build", s: x.s }));
+}
+
 function startSession(mode, ruleId) {
   let items;
   if (mode === "rule") items = pickGrammarQs(99, ruleId);
   else if (mode === "grammar") items = pickGrammarQs(10);
-  else items = shuffle([...pickVocabQs(10), ...pickGrammarQs(5)]);
+  else if (mode === "build") items = pickBuildQs(8);
+  else items = shuffle([...pickVocabQs(8), ...pickGrammarQs(4), ...pickBuildQs(3)]);
   if (!items.length) { showTab("practice"); return toast("Nothing due right now — add words or come back later"); }
   session = { queue: items, done: 0, total: items.length, correct: 0, wrong: 0, xp: 0, leveled: false };
   showTab("practice");
@@ -380,6 +392,9 @@ function startSession(mode, ruleId) {
 
 function buildExercise(item) {
   const lvl = P().level;
+  if (item.kind === "build") {
+    return { type: "build", s: item.s, ruleId: item.s.rule };
+  }
   if (item.kind === "grammar") {
     return { type: "mc", prompt: item.q.q, hint: item.rule.title, options: item.q.o, answer: item.q.a,
              sayAfter: null, gradeId: null, ruleId: item.rule.id };
@@ -411,6 +426,7 @@ function nextCard() {
   const item = session.queue[0];
   const ex = buildExercise(item);
   session.currentEx = ex; session.currentItem = item;
+  if (ex.type === "build") return renderBuildCard(ex);
   const typeLabel = { mc: "Choose", type: "Type the answer", listen: "Listening" }[ex.type];
   let body = "";
   if (ex.type === "listen") {
@@ -579,4 +595,93 @@ function restoreBackup(b) {
   save();
   toast("Backup restored — welcome back!");
   setTimeout(() => location.reload(), 800);
+}
+
+/* ---------- SENTENCE BUILDING ---------- */
+function renderBuildCard(ex) {
+  const s = ex.s;
+  session.build = {
+    pos: 0, mistakes: 0, missAtPos: 0,
+    tiles: shuffle(s.t.map((w, i) => ({ w, i, used: false })))
+  };
+  $("#view-practice").innerHTML = `
+    <div class="progressline">
+      <div class="bar grow"><i style="width:${(100 * session.done / session.total)}%"></i></div>
+      <span class="num">${session.done}/${session.total}</span>
+    </div>
+    <div class="qcard">
+      <div class="qtype">Build the sentence</div>
+      <div class="qprompt">${esc(s.en)}</div>
+      <div class="qhint">Tap the words in the right order — you'll know instantly if one is wrong.</div>
+      <div class="built" id="built"></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="buildhint" id="bhint"></div>
+      <div class="feedback" id="fb"></div>
+    </div>`;
+  drawBuild();
+}
+function drawBuild() {
+  const b = session.build, s = session.currentEx.s;
+  $("#built").innerHTML = s.t.slice(0, b.pos).map(w =>
+    `<span class="tile locked">${esc(w)}</span>`).join("") +
+    (b.pos < s.t.length ? `<span class="tile slot">&nbsp;</span>` : "");
+  $("#tiles").innerHTML = b.tiles.map((t, i) =>
+    `<button class="tile bank ${t.used ? "used" : ""}" id="t${i}"
+       ${t.used ? "disabled" : ""} onclick="tapTile(${i})">${esc(t.w)}</button>`).join("");
+}
+function tapTile(i) {
+  const b = session.build, s = session.currentEx.s;
+  const t = b.tiles[i];
+  if (t.used || b.pos >= s.t.length) return;
+  if (t.w === s.t[b.pos]) {
+    // correct next word — lock it in
+    t.used = true; b.pos++; b.missAtPos = 0;
+    drawBuild();
+    if (b.pos === s.t.length) return settleBuild();
+  } else {
+    // instant feedback on the mistake
+    b.mistakes++; b.missAtPos++;
+    const el = $("#t" + i);
+    el.classList.add("err");
+    setTimeout(() => el.classList.remove("err"), 450);
+    const bh = $("#bhint");
+    if (b.missAtPos === 1) {
+      bh.innerHTML = `<b>Not that one.</b> ${esc(s.hint)}`;
+    } else {
+      // second miss at the same position: reveal the correct tile
+      const idx = b.tiles.findIndex(x => !x.used && x.w === s.t[b.pos]);
+      if (idx >= 0) {
+        const good = $("#t" + idx);
+        good.classList.add("reveal");
+        setTimeout(() => good.classList.remove("reveal"), 1200);
+      }
+      bh.innerHTML = `<b>Watch the glowing tile</b> — the next word is <b>${esc(s.t[b.pos])}</b>. ${esc(s.hint)}`;
+    }
+  }
+}
+function settleBuild() {
+  const s = session.currentEx.s, b = session.build;
+  const item = session.queue.shift();
+  const perfect = b.mistakes === 0;
+  const xpVal = Math.max(5, 20 - 5 * b.mistakes);
+  touchStreak();
+  session.done++;
+  if (perfect) session.correct++; else session.wrong++;
+  session.xp += xpVal;
+  if (addXP(xpVal)) session.leveled = true;
+  // mistakes feed the linked grammar rule's mastery and repeat the sentence
+  recordGrammar(s.rule, perfect);
+  if (!perfect && !item.re) { item.re = true; session.queue.push(item); session.total++; }
+  const fb = $("#fb");
+  fb.className = "feedback " + (perfect ? "ok" : "bad");
+  fb.innerHTML = (perfect
+      ? "Perfect! +" + xpVal + " XP"
+      : b.mistakes + " mistake" + (b.mistakes > 1 ? "s" : "") + " — +" + xpVal
+        + " XP" + (item.re && session.queue[session.queue.length - 1] === item ? ", you'll build it again" : ""))
+    + `<div class="builtdone">${esc(s.t.join(" "))} ${audioBtn(s.t.join(""))}</div>`
+    + `<button class="btn" style="margin-top:12px" onclick="nextCard()">Continue</button>`;
+  speak(S.lang === "ja" ? s.t.join("") : s.t.join(" "));
+  const g = L().grammar.find(r => r.id === s.rule);
+  if (!perfect && g) fb.innerHTML += `<div class="qhint" style="margin-top:8px">Related rule: 
+    <a href="#" onclick="showTab('grammar');renderGrammarDetail('${g.id}');return false">${esc(g.title)}</a></div>`;
 }

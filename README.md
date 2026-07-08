@@ -40,6 +40,20 @@ Progress, levels, streaks, SRS schedules and custom vocabulary are stored in you
 
 All content lives in `data.js`. Each grammar rule has an id, category, title, difficulty level, explanation, examples and quiz questions; each vocab item has a word, optional reading and translation. Add entries following the existing pattern — they appear in the app automatically.
 
+## Sentence building (with instant feedback)
+
+Practice sessions now include tile-based sentence construction (74 sentences in
+`sentences.js`, levels 1–6, each linked to a grammar rule). You see the English
+sentence and tap the target-language word tiles in order:
+
+- A wrong tile flashes red **immediately** and shows a grammar hint explaining the
+  structure; it never silently accepts a wrong order.
+- A second miss at the same position makes the correct tile glow.
+- Perfect builds earn 20 XP; each mistake costs 5 XP (minimum 5).
+- Mistakes feed the linked grammar rule's mastery score, requeue the sentence at
+  the end of the session, and the finished card links to the related rule.
+- There's also a dedicated "Sentence building" session on the Practice tab.
+
 ## Grammar (30 rules per language, levels 1–6)
 
 Levels 1–3 cover the beginner–intermediate core; levels 4–6 (in `grammar_adv.js`)

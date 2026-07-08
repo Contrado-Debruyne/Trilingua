@@ -1,6 +1,6 @@
 /* Trilingua service worker: full offline support (cache-first) */
-const CACHE = "trilingua-v3";
-const ASSETS = ["./", "index.html", "app.js", "data.js", "grammar_adv.js", "vocab_big.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "trilingua-v4";
+const ASSETS = ["./", "index.html", "app.js", "data.js", "grammar_adv.js", "sentences.js", "vocab_big.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
