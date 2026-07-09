@@ -132,7 +132,7 @@ function speak(text, lang) {
   speechSynthesis.speak(u);
 }
 function audioBtn(text, label) {
-  return `<button class="iconbtn" aria-label="${label || "play audio"}" onclick="speak(${JSON.stringify(text)});event.stopPropagation()">🔊</button>`;
+  return `<button class="iconbtn" aria-label="${label || "play audio"}" onclick="speak(${esc(JSON.stringify(text))});event.stopPropagation()">🔊</button>`;
 }
 
 /* ---------- rendering utils ---------- */
@@ -454,7 +454,7 @@ function nextCard() {
   let body = "";
   if (ex.type === "listen") {
     body = `<button class="iconbtn" style="width:64px;height:64px;font-size:1.6rem;margin:8px auto"
-      onclick="speak(${JSON.stringify(ex.say)})">🔊</button>`;
+      onclick="speak(${esc(JSON.stringify(ex.say))})">🔊</button>`;
     setTimeout(() => speak(ex.say), 300);
   }
   const opts = ex.options ? `<div class="opts">` + ex.options.map((o, i) =>
