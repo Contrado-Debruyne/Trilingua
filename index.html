@@ -127,6 +127,19 @@ h3{font-size:1rem; margin:18px 0 8px; color:var(--muted); font-weight:600;
 .builtdone{margin-top:8px; font-weight:700}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 @keyframes pulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 6px color-mix(in srgb, var(--acc) 35%, transparent)}}
+.th{margin:14px 0 4px; font-size:.95rem; color:var(--acc)}
+.th:first-child{margin-top:0}
+.tp{margin:0 0 8px; font-size:.92rem; line-height:1.55; color:var(--text)}
+.gtablewrap{background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:14px; margin-bottom:14px; overflow-x:auto}
+.gtabletitle{font-weight:700; font-size:.9rem; margin-bottom:10px}
+.gtable{width:100%; border-collapse:collapse; font-size:.86rem; min-width:340px}
+.gtable th{color:var(--muted); font-weight:600; text-align:left; padding:6px 10px;
+  border-bottom:1px solid var(--line); white-space:nowrap}
+.gtable td{padding:7px 10px; border-bottom:1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  vertical-align:top}
+.gtable tr:last-child td{border-bottom:none}
+.gtable td:first-child{color:var(--acc); font-weight:600; white-space:nowrap}
 .del{color:var(--bad); font-size:.8rem; font-weight:700; padding:6px}
 
 /* practice */
@@ -201,6 +214,7 @@ nav button:focus-visible,.btn:focus-visible,.opt:focus-visible,.grule:focus-visi
 
 <script src="data.js"></script>
 <script src="grammar_adv.js"></script>
+<script src="grammar_detail.js"></script>
 <script src="sentences.js"></script>
 <script src="vocab_big.js"></script>
 <script src="app.js"></script>

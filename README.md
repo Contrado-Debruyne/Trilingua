@@ -54,7 +54,14 @@ sentence and tap the target-language word tiles in order:
   the end of the session, and the finished card links to the related rule.
 - There's also a dedicated "Sentence building" session on the Practice tab.
 
-## Grammar (30 rules per language, levels 1–6)
+## Grammar (30 rules per language, levels 1–6, full theory)
+
+Every rule page now contains: a quick summary, detailed **theory** in sections
+(usage, formation, pitfalls), **reference tables** (conjugations, declensions,
+particle charts — 143 tables in `grammar_detail.js`), audio **examples**, and
+direct **exercise links** — a quiz for the rule plus tile-based sentence
+building filtered to that rule. Related rules in the same category are
+cross-linked at the bottom of each page.
 
 Levels 1–3 cover the beginner–intermediate core; levels 4–6 (in `grammar_adv.js`)
 add advanced and native-level topics — e.g. Spanish si-clauses, subjunctive nuance and

@@ -234,17 +234,37 @@ function renderGrammarList() {
 function renderGrammarDetail(id) {
   const g = L().grammar.find(r => r.id === id);
   const m = mastery(id);
+  const theory = (g.theory || []).map(t =>
+    `<h4 class="th">${esc(t.h)}</h4><p class="tp">${esc(t.p)}</p>`).join("");
+  const tables = (g.tables || []).map(t => `
+    <div class="gtablewrap"><div class="gtabletitle">${esc(t.title)}</div>
+    <table class="gtable"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table></div>`).join("");
   const examples = g.ex.map(e =>
     `<div class="example">${audioBtn(e[0])}<div class="grow"><div class="fx">${esc(e[0])}</div><div class="tx">${esc(e[1])}</div></div></div>`
   ).join("");
+  const nBuilds = (typeof SENTENCES !== "undefined")
+    ? SENTENCES[S.lang].filter(s => s.rule === id).length : 0;
+  const related = L().grammar.filter(r => r.cat === g.cat && r.id !== id).slice(0, 4);
   $("#view-grammar").innerHTML = `
     <button class="back" onclick="renderGrammarList()">← All rules</button>
     <h2>${esc(g.title)}</h2>
     <p class="sub">${esc(g.cat)} · difficulty L${g.level} · mastery ${m === null ? "not practiced yet" : m + "%"}</p>
     <div class="card"><div class="gbody">${esc(g.body)}</div></div>
+    ${theory ? `<h3>Theory</h3><div class="card">${theory}</div>` : ""}
+    ${tables ? `<h3>Tables</h3>${tables}` : ""}
     <h3>Examples</h3>
     <div class="card">${examples}</div>
-    <button class="btn" onclick="startSession('rule','${g.id}')">Practice this rule</button>`;
+    <h3>Exercises</h3>
+    <div class="card">
+      <p class="sub" style="margin-top:0">Quiz questions test the rule directly; sentence building makes you apply it word by word with instant feedback.</p>
+      <button class="btn" onclick="startSession('rule','${g.id}')">Quiz this rule</button>
+      ${nBuilds ? `<button class="btn ghost" style="margin-top:10px" onclick="startSession('buildrule','${g.id}')">Build ${nBuilds} sentence${nBuilds > 1 ? "s" : ""} using it</button>` : ""}
+    </div>
+    ${related.length ? `<h3>Related rules</h3><div class="card">` + related.map(r =>
+      `<button class="grule" onclick="renderGrammarDetail('${r.id}')">
+         <span>${esc(r.title)}</span><span class="num">L${r.level}</span></button>`).join("") + `</div>` : ""}`;
   window.scrollTo(0, 0);
 }
 
@@ -383,6 +403,9 @@ function startSession(mode, ruleId) {
   if (mode === "rule") items = pickGrammarQs(99, ruleId);
   else if (mode === "grammar") items = pickGrammarQs(10);
   else if (mode === "build") items = pickBuildQs(8);
+  else if (mode === "buildrule") items = (typeof SENTENCES !== "undefined")
+    ? shuffle(SENTENCES[S.lang].filter(s => s.rule === ruleId)).map(s => ({ kind: "build", s }))
+    : [];
   else items = shuffle([...pickVocabQs(8), ...pickGrammarQs(4), ...pickBuildQs(3)]);
   if (!items.length) { showTab("practice"); return toast("Nothing due right now — add words or come back later"); }
   session = { queue: items, done: 0, total: items.length, correct: 0, wrong: 0, xp: 0, leveled: false };
