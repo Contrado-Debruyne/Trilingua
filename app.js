@@ -217,6 +217,13 @@ function renderGrammarList() {
   L().grammar.forEach(g => (cats[g.cat] = cats[g.cat] || []).push(g));
   let html = `<h2>${L().name} grammar</h2>
     <p class="sub">All ${L().grammar.length} rules at a glance. Tap a rule to drill down. The % shows your quiz mastery.</p>`;
+  if (S.lang === "ja" && typeof JA_READING !== "undefined") {
+    html += `<button class="coursecard" onclick="renderReadingPlan()">
+      <span class="glyph">📖</span>
+      <span class="grow"><b>Reading &amp; writing course</b><br>
+        <span class="m">Hiragana · katakana · kanji — charts, method and a 12-week plan</span></span>
+      <span class="num">›</span></button>`;
+  }
   for (const c of Object.keys(cats)) {
     html += `<h3>${esc(c)}</h3><div class="gcat">` + cats[c].map(g => {
       const m = mastery(g.id);
@@ -512,22 +519,35 @@ function settle(correct, answerText, xpVal) {
   const ex = session.currentEx, item = session.queue.shift();
   const fb = $("#fb");
   touchStreak();
+  let status;
   if (correct) {
     session.correct++; session.done++;
     session.xp += xpVal;
     if (addXP(xpVal)) session.leveled = true;
-    fb.className = "feedback ok"; fb.textContent = "Correct! +" + xpVal + " XP";
+    fb.className = "feedback ok"; status = "Correct! +" + xpVal + " XP";
   } else {
     session.wrong++;
-    fb.className = "feedback bad"; fb.textContent = "Answer: " + answerText + " — you'll see this again";
+    fb.className = "feedback bad"; status = "Not quite — you'll see this again";
     session.queue.push(item);            // mistakes repeat at the end of the session
     session.total++; session.done++;
   }
+  // the word card: meaning + reading + pronunciation audio, on every single answer
+  let detail = "";
+  if (item.kind === "vocab") {
+    const v = item.v;
+    detail = `<div class="wordinfo">${audioBtn(v.w)}
+      <div class="grow"><b class="fx">${esc(v.w)}</b>${v.r ? ` <span class="r">${esc(v.r)}</span>` : ""}<br>
+      <span class="t">= ${esc(v.t)}</span></div></div>`;
+  } else if (item.kind === "grammar") {
+    detail = `<div class="wordinfo"><div class="grow"><b class="fx">${esc(answerText)}</b><br>
+      <span class="t">${esc(item.rule.title)}</span></div></div>`;
+  }
+  fb.innerHTML = `<div>${status}</div>${detail}
+    <button class="btn" style="margin-top:12px" onclick="nextCard()">Continue</button>`;
   if (ex.gradeId) gradeItem(ex.gradeId, correct);
   if (ex.ruleId) recordGrammar(ex.ruleId, correct);
   if (ex.sayAfter) speak(ex.sayAfter);
   save(); renderHeader();
-  setTimeout(nextCard, correct ? 900 : 1800);
 }
 
 function finishSession() {
@@ -707,4 +727,35 @@ function settleBuild() {
   const g = L().grammar.find(r => r.id === s.rule);
   if (!perfect && g) fb.innerHTML += `<div class="qhint" style="margin-top:8px">Related rule: 
     <a href="#" onclick="showTab('grammar');renderGrammarDetail('${g.id}');return false">${esc(g.title)}</a></div>`;
+}
+
+/* ---------- JAPANESE READING & WRITING COURSE ---------- */
+function renderReadingPlan() {
+  const R = JA_READING;
+  const toc = R.sections.map((s, i) =>
+    `<button class="grule" onclick="document.getElementById('rs${i}').scrollIntoView({behavior:'smooth'})">
+      <span class="grow"><span class="t">${esc(s.h)}</span></span><span class="num">›</span></button>`).join("");
+  const body = R.sections.map((s, i) => {
+    const ps = s.ps.map(p => `<p class="tp">${esc(p)}</p>`).join("");
+    const tables = (s.tables || []).map(t => `
+      <div class="gtablewrap"><div class="gtabletitle">${esc(t.title)}</div>
+      <table class="gtable"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table></div>`).join("");
+    return `<h3 id="rs${i}">${esc(s.h)}</h3><div class="card">${ps}</div>${tables}`;
+  }).join("");
+  $("#view-grammar").innerHTML = `
+    <button class="back" onclick="renderGrammarList()">← All rules</button>
+    <h2>${esc(R.title)}</h2>
+    <div class="card"><p class="tp" style="margin:0">${esc(R.intro)}</p></div>
+    <h3>Contents</h3>
+    <div class="card">${toc}</div>
+    ${body}
+    <h3>Put it into practice</h3>
+    <div class="card">
+      <p class="sub" style="margin-top:0">Every vocabulary word in this app shows kana with romaji and has pronunciation audio — use it as your kana reading drill.</p>
+      <button class="btn" onclick="showTab('vocab')">Open the vocabulary list</button>
+      <button class="btn ghost" style="margin-top:10px" onclick="startSession('mix')">Start a practice session</button>
+    </div>`;
+  window.scrollTo(0, 0);
 }

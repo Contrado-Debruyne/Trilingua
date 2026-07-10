@@ -40,6 +40,22 @@ Progress, levels, streaks, SRS schedules and custom vocabulary are stored in you
 
 All content lives in `data.js`. Each grammar rule has an id, category, title, difficulty level, explanation, examples and quiz questions; each vocab item has a word, optional reading and translation. Add entries following the existing pattern — they appear in the app automatically.
 
+## Exercise feedback
+
+Every answered card — right or wrong — shows a word panel with the foreign word,
+its reading (Japanese), its English meaning, and a tap-to-play pronunciation
+button. Sessions advance with a Continue button, so you control how long the
+panel stays on screen.
+
+## Japanese reading & writing course
+
+The Grammar tab for Japanese opens with a full course (`ja_reading.js`): how the
+three scripts fit together; complete hiragana and katakana charts with dakuten,
+yōon and lookalike drills; pronunciation mechanics (particle spellings, mora
+timing); the kanji system (radicals, on/kun readings, okurigana) with the first
+80 kanji in study order; the eight stroke-order rules and a handwriting routine;
+a five-level reading ladder; and a 12-week day-by-day schedule.
+
 ## Sentence building (with instant feedback)
 
 Practice sessions now include tile-based sentence construction (74 sentences in
