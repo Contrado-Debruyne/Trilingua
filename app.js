@@ -18,7 +18,32 @@ function loadState() {
   return { lang: "es", profiles: { es: blankProfile(), de: blankProfile(), ja: blankProfile() } };
 }
 const S = loadState();
-function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(S));
+  autoSnapshot();
+}
+/* automatic rolling snapshots: one per day, last 7 kept, restorable from Home */
+const SNAP_KEY = "trilingua-snapshots";
+function autoSnapshot() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    let snaps = JSON.parse(localStorage.getItem(SNAP_KEY) || "[]");
+    const i = snaps.findIndex(s => s.date === today);
+    const snap = { date: today, state: S };
+    if (i >= 0) snaps[i] = snap; else snaps.push(snap);
+    snaps = snaps.slice(-7);
+    localStorage.setItem(SNAP_KEY, JSON.stringify(snaps));
+  } catch (e) { /* storage full or blocked — main save above still succeeded */ }
+}
+function listSnapshots() {
+  try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "[]"); }
+  catch (e) { return []; }
+}
+function restoreSnapshot(date) {
+  const snap = listSnapshots().find(s => s.date === date);
+  if (!snap) return toast("Snapshot not found");
+  restoreBackup({ app: "trilingua", format: 1, exported: date, state: snap.state });
+}
 function P() { return S.profiles[S.lang]; }
 function L() { return DATA[S.lang]; }
 
@@ -206,6 +231,12 @@ function renderHome() {
         <button class="btn ghost grow" onclick="$('#bfile').click()">Import backup</button>
       </div>
       <input type="file" id="bfile" accept=".json,application/json" style="display:none" onchange="importBackupFile(this)">
+      <p class="sub" style="margin-bottom:6px">💾 Everything autosaves on this device after every answer — including
+        mid-session progress. The app also keeps automatic daily snapshots (last 7 days):</p>
+      <div>${listSnapshots().slice().reverse().map(s =>
+        `<button class="grule" onclick="restoreSnapshot('${s.date}')">
+           <span class="grow"><span class="t">Snapshot ${s.date}</span></span><span class="num">restore</span></button>`).join("")
+        || '<span class="sub">First snapshot will appear after your first practice today.</span>'}</div>
     </div>`;
 }
 function switchLang(k) { S.lang = k; save(); renderHome(); }
@@ -355,8 +386,18 @@ let session = null;
 function renderPracticeStart() {
   setAccent(); renderHeader();
   const due = dueCount();
+  const pend = pendingSession();
+  const resume = pend ? `
+    <div class="card row">
+      <div class="grow"><b>Unfinished session</b> (${esc(DATA[pend.lang].name)}, ${pend.session.done}/${pend.session.total} done)<br>
+        <span class="sub" style="margin:0">Everything you answered is already saved.</span></div>
+    </div>
+    <button class="btn" onclick="resumeSession()">Resume session</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="discardSession()">Discard it</button>
+    <hr class="sep">` : "";
   $("#view-practice").innerHTML = `
     <h2>Practice — ${L().name}</h2>
+    ${resume}
     <p class="sub">Reviews are scheduled by spaced repetition: first after days, then weeks, then months.
       Mistakes shorten the interval and repeat inside the session.</p>
     <div class="card row">
@@ -426,6 +467,7 @@ function startSession(mode, ruleId) {
   if (!items.length) { showTab("practice"); return toast("Nothing due right now — add words or come back later"); }
   session = { queue: items, done: 0, total: items.length, correct: 0, wrong: 0, xp: 0, leveled: false,
               courseKey: mode === "kanatest" ? ruleId : null };
+  persistSession();
   showTab("practice");
   nextCard();
 }
@@ -590,7 +632,7 @@ function settle(correct, answerText, xpVal) {
   if (ex.gradeId) gradeItem(ex.gradeId, correct);
   if (ex.ruleId) recordGrammar(ex.ruleId, correct);
   if (ex.sayAfter) speak(ex.sayAfter);
-  save(); renderHeader();
+  save(); persistSession(); renderHeader();
 }
 
 function finishSession() {
@@ -629,6 +671,7 @@ function finishSession() {
         : `<button class="btn" onclick="renderPracticeStart()">Done</button>`}
     </div>`;
   session = null;
+  clearSavedSession();
   renderHeader();
 }
 
@@ -785,6 +828,7 @@ function settleBuild() {
         + " XP" + (item.re && session.queue[session.queue.length - 1] === item ? ", you'll build it again" : ""))
     + `<div class="builtdone">${esc(s.t.join(" "))} ${audioBtn(s.t.join(""))}</div>`
     + `<button class="btn" style="margin-top:12px" onclick="nextCard()">Continue</button>`;
+  save(); persistSession();
   speak(S.lang === "ja" ? s.t.join("") : s.t.join(" "));
   const g = L().grammar.find(r => r.id === s.rule);
   if (!perfect && g) fb.innerHTML += `<div class="qhint" style="margin-top:8px">Related rule: 
@@ -864,4 +908,35 @@ function pickKanaQs(key, n) {
   if (typeof KANA_EX === "undefined") return [];
   return shuffle(KANA_EX[key].slice()).slice(0, n)
     .map(pair => ({ kind: "kana", pair, key }));
+}
+
+/* ---------- SESSION AUTOSAVE & RESUME ---------- */
+const SESSION_KEY = "trilingua-session";
+function persistSession() {
+  try {
+    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify({ lang: S.lang, session }));
+  } catch (e) { /* non-fatal */ }
+}
+function clearSavedSession() { localStorage.removeItem(SESSION_KEY); }
+function pendingSession() {
+  try {
+    const p = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    return p && p.session && p.session.queue && p.session.queue.length ? p : null;
+  } catch (e) { return null; }
+}
+function resumeSession() {
+  const p = pendingSession();
+  if (!p) return renderPracticeStart();
+  S.lang = p.lang; save();
+  session = p.session;
+  session.currentEx = null;    // rebuild the current card fresh
+  showTab("practice");
+  nextCard();
+  toast("Session resumed where you left off");
+}
+function discardSession() { clearSavedSession(); renderPracticeStart(); }
+
+/* ask the browser to protect our storage from eviction */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
 }

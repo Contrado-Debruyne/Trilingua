@@ -1,5 +1,5 @@
 /* Trilingua service worker: full offline support (cache-first) */
-const CACHE = "trilingua-v8";
+const CACHE = "trilingua-v9";
 const ASSETS = ["./", "index.html", "app.js", "data.js", "grammar_adv.js", "grammar_detail.js", "sentences.js", "ja_reading.js", "ja_kana.js", "vocab_big.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

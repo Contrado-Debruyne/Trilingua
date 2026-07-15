@@ -40,6 +40,16 @@ Progress, levels, streaks, SRS schedules and custom vocabulary are stored in you
 
 All content lives in `data.js`. Each grammar rule has an id, category, title, difficulty level, explanation, examples and quiz questions; each vocab item has a word, optional reading and translation. Add entries following the existing pattern — they appear in the app automatically.
 
+## Autosave
+
+Everything saves automatically on the device after every single answer: XP,
+levels, streaks, the review schedule, course scores — and the practice session
+itself. Close the app mid-session and the Practice tab offers to resume exactly
+where you left off. The app additionally keeps one automatic snapshot per day
+(last 7 days, restorable from the Home tab) and requests persistent storage
+from the browser so the data isn't evicted. For switching phones, use the
+manual Export/Import backup — device storage never leaves the device.
+
 ## Exercise feedback
 
 Every answered card — right or wrong — shows a word panel with the foreign word,
