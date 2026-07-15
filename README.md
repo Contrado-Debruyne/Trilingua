@@ -47,7 +47,23 @@ its reading (Japanese), its English meaning, and a tap-to-play pronunciation
 button. Sessions advance with a Continue button, so you control how long the
 panel stays on screen.
 
-## Japanese reading & writing course
+## Japanese reading & writing course — with exercises and vocabulary gating
+
+Five interactive tests live at the top of the course page (`ja_kana.js` holds the
+drill data): hiragana basics (46), hiragana voiced & combos (50), katakana
+basics (46), katakana voiced & extended (51), and the first 40 kanji. Each test
+asks 20 questions in both directions (character → reading, reading → character;
+kanji also meaning), gives the answer card with audio on every mistake, and
+records your best score. Pass mark: 90%.
+
+**Vocabulary depends on the course:** while a script is unpassed, vocabulary
+exercises show romaji as training wheels and mixed practice sessions
+automatically include drills for the next unpassed stage. Once you pass
+hiragana (or katakana), romaji disappears from vocabulary exercises for words
+in that script — from then on you read the kana itself. Course progress is
+stored per profile and included in backups.
+
+## Japanese reading & writing course (reference)
 
 The Grammar tab for Japanese opens with a full course (`ja_reading.js`): how the
 three scripts fit together; complete hiragana and katakana charts with dakuten,

@@ -8,7 +8,7 @@ const SRS_STEPS = [1, 3, 7, 16, 35, 90]; // days: shorter intervals first, then 
 
 function blankProfile() {
   return { xp: 0, level: 1, streak: 0, lastDay: null,
-           srs: {}, gstats: {}, custom: [] };
+           srs: {}, gstats: {}, custom: [], course: {} };
 }
 function loadState() {
   try {
@@ -413,9 +413,19 @@ function startSession(mode, ruleId) {
   else if (mode === "buildrule") items = (typeof SENTENCES !== "undefined")
     ? shuffle(SENTENCES[S.lang].filter(s => s.rule === ruleId)).map(s => ({ kind: "build", s }))
     : [];
-  else items = shuffle([...pickVocabQs(8), ...pickGrammarQs(4), ...pickBuildQs(3)]);
+  else if (mode === "kanatest") items = pickKanaQs(ruleId, COURSE_STAGES[ruleId].n);
+  else {
+    items = shuffle([...pickVocabQs(8), ...pickGrammarQs(4), ...pickBuildQs(3)]);
+    // vocabulary practice depends on the reading course: until a script is
+    // passed, mixed sessions also drill that script's characters
+    if (S.lang === "ja" && typeof KANA_EX !== "undefined") {
+      const next = ["hira", "hiraM", "kata", "kataM"].find(k => !coursePassed(k));
+      if (next) items = shuffle([...items, ...pickKanaQs(next, 3)]);
+    }
+  }
   if (!items.length) { showTab("practice"); return toast("Nothing due right now — add words or come back later"); }
-  session = { queue: items, done: 0, total: items.length, correct: 0, wrong: 0, xp: 0, leveled: false };
+  session = { queue: items, done: 0, total: items.length, correct: 0, wrong: 0, xp: 0, leveled: false,
+              courseKey: mode === "kanatest" ? ruleId : null };
   showTab("practice");
   nextCard();
 }
@@ -429,9 +439,34 @@ function buildExercise(item) {
     return { type: "mc", prompt: item.q.q, hint: item.rule.title, options: item.q.o, answer: item.q.a,
              sayAfter: null, gradeId: null, ruleId: item.rule.id };
   }
+  if (item.kind === "kana") {
+    const pool = KANA_EX[item.key];
+    const others = shuffle(pool.filter(p => p !== item.pair)).slice(0, 3);
+    if (item.key === "kanji") {
+      // kanji: alternate meaning and reading questions
+      if (Math.random() < 0.5) {
+        return { type: "mc", prompt: item.pair[0], hint: "Choose the meaning",
+                 options: shuffle([item.pair, ...others]).map(p => p[2]),
+                 answerText: item.pair[2], sayAfter: item.pair[1], sayPrompt: item.pair[1] };
+      }
+      return { type: "mc", prompt: item.pair[0], hint: "Choose the reading",
+               options: shuffle([item.pair, ...others]).map(p => p[1]),
+               answerText: item.pair[1], sayAfter: item.pair[1] };
+    }
+    // kana: alternate char→romaji and romaji→char
+    if (Math.random() < 0.5) {
+      return { type: "mc", prompt: item.pair[0], hint: "How is this read?",
+               options: shuffle([item.pair, ...others]).map(p => p[1]),
+               answerText: item.pair[1], sayAfter: item.pair[0], sayPrompt: item.pair[0] };
+    }
+    return { type: "mc", prompt: item.pair[1], hint: "Choose the character",
+             options: shuffle([item.pair, ...others]).map(p => p[0]),
+             answerText: item.pair[0], sayAfter: item.pair[0] };
+  }
   const v = item.v;
   const s = srsOf(v.id);
   const pool = shuffle(allVocab().filter(x => x.id !== v.id)).slice(0, 3);
+  const showR = needsRomaji(v);   // romaji only until the script test is passed
   // difficulty ladder: L1 recognition → L3 typing → L5 listening
   if (lvl >= 3 && s.reps >= 2 && Math.random() < 0.5) {
     return { type: "type", prompt: v.t, hint: "Type it in " + L().name + (v.r ? " (romaji ok)" : ""),
@@ -443,12 +478,12 @@ function buildExercise(item) {
              sayAfter: null, gradeId: v.id };
   }
   if (Math.random() < 0.5) {
-    return { type: "mc", prompt: v.w, sub: v.r, hint: "Choose the meaning",
+    return { type: "mc", prompt: v.w, sub: showR ? v.r : null, hint: "Choose the meaning",
              options: shuffle([v, ...pool]).map(x => x.t), answerText: v.t, sayAfter: v.w, gradeId: v.id, sayPrompt: v.w };
   }
   return { type: "mc", prompt: v.t, hint: "Choose the " + L().name + " word",
-           options: shuffle([v, ...pool]).map(x => x.w + (x.r ? " · " + x.r : "")),
-           answerText: v.w + (v.r ? " · " + v.r : ""), sayAfter: v.w, gradeId: v.id };
+           options: shuffle([v, ...pool]).map(x => x.w + (x.r && needsRomaji(x) ? " · " + x.r : "")),
+           answerText: v.w + (v.r && showR ? " · " + v.r : ""), sayAfter: v.w, gradeId: v.id };
 }
 
 function nextCard() {
@@ -527,9 +562,12 @@ function settle(correct, answerText, xpVal) {
     fb.className = "feedback ok"; status = "Correct! +" + xpVal + " XP";
   } else {
     session.wrong++;
-    fb.className = "feedback bad"; status = "Not quite — you'll see this again";
-    session.queue.push(item);            // mistakes repeat at the end of the session
-    session.total++; session.done++;
+    fb.className = "feedback bad"; status = "Not quite" + (session.courseKey ? "" : " — you'll see this again");
+    if (!session.courseKey) {           // mistakes repeat, except in course tests
+      session.queue.push(item);
+      session.total++;
+    }
+    session.done++;
   }
   // the word card: meaning + reading + pronunciation audio, on every single answer
   let detail = "";
@@ -541,6 +579,11 @@ function settle(correct, answerText, xpVal) {
   } else if (item.kind === "grammar") {
     detail = `<div class="wordinfo"><div class="grow"><b class="fx">${esc(answerText)}</b><br>
       <span class="t">${esc(item.rule.title)}</span></div></div>`;
+  } else if (item.kind === "kana") {
+    const p = item.pair;
+    detail = `<div class="wordinfo">${audioBtn(item.key === "kanji" ? p[1] : p[0])}
+      <div class="grow"><b class="fx">${esc(p[0])}</b> <span class="r">${esc(p[1])}</span>
+      ${p[2] ? `<br><span class="t">= ${esc(p[2])}</span>` : ""}</div></div>`;
   }
   fb.innerHTML = `<div>${status}</div>${detail}
     <button class="btn" style="margin-top:12px" onclick="nextCard()">Continue</button>`;
@@ -553,18 +596,37 @@ function settle(correct, answerText, xpVal) {
 function finishSession() {
   const acc = session.correct + session.wrong === 0 ? 0
     : Math.round(100 * session.correct / (session.correct + session.wrong));
+  let courseBlock = "";
+  if (session.courseKey) {
+    const key = session.courseKey, stage = COURSE_STAGES[key];
+    const already = coursePassed(key);
+    setCourseBest(key, acc);
+    const passed = coursePassed(key);
+    courseBlock = passed
+      ? `<div class="card" style="text-align:left">
+           <b>✅ ${esc(stage.name)}: passed${already ? "" : " — new!"}</b>
+           <p class="sub" style="margin-bottom:0">${key === "hira" || key === "kata"
+             ? "Vocabulary exercises now show " + (key === "hira" ? "hiragana" : "katakana") + " words without romaji — real reading mode."
+             : "Best score saved: " + courseBest(key) + "%."}</p></div>`
+      : `<div class="card" style="text-align:left">
+           <b>${esc(stage.name)}: ${acc}%</b>
+           <p class="sub" style="margin-bottom:0">You need ${PASS_MARK}% to pass. Best so far: ${courseBest(key)}%. Review the charts and try again.</p></div>`;
+  }
   $("#view-practice").innerHTML = `
     <div class="sessiondone">
       <div class="big">${acc >= 80 ? "🎉" : "💪"}</div>
-      <h2>Session complete</h2>
+      <h2>${session.courseKey ? esc(COURSE_STAGES[session.courseKey].name) + " test" : "Session complete"}</h2>
       ${session.leveled ? `<div class="stampwrap"><div class="stamp">LEVEL ${P().level}</div></div>` : ""}
+      ${courseBlock}
       <div class="card" style="text-align:left">
         <div class="row"><span class="grow">Accuracy</span><b class="num">${acc}%</b></div>
         <div class="row"><span class="grow">XP earned</span><b class="num">+${session.xp}</b></div>
-        <div class="row"><span class="grow">Mistakes (rescheduled sooner)</span><b class="num">${session.wrong}</b></div>
+        <div class="row"><span class="grow">Mistakes${session.courseKey ? "" : " (rescheduled sooner)"}</span><b class="num">${session.wrong}</b></div>
         <div class="row"><span class="grow">Streak</span><b class="num">🔥 ${P().streak} days</b></div>
       </div>
-      <button class="btn" onclick="renderPracticeStart()">Done</button>
+      ${session.courseKey
+        ? `<button class="btn" onclick="showTab('grammar');renderReadingPlan()">Back to the course</button>`
+        : `<button class="btn" onclick="renderPracticeStart()">Done</button>`}
     </div>`;
   session = null;
   renderHeader();
@@ -633,7 +695,7 @@ function restoreBackup(b) {
   for (const l of ["es", "de", "ja"]) {
     const p = S.profiles[l];
     p.streak = p.streak || 0; p.lastDay = p.lastDay ?? null;
-    p.gstats = p.gstats || {}; p.custom = p.custom || [];
+    p.gstats = p.gstats || {}; p.custom = p.custom || []; p.course = p.course || {};
   }
   save();
   toast("Backup restored — welcome back!");
@@ -732,6 +794,15 @@ function settleBuild() {
 /* ---------- JAPANESE READING & WRITING COURSE ---------- */
 function renderReadingPlan() {
   const R = JA_READING;
+  const tests = Object.keys(COURSE_STAGES).map(key => {
+    const st = COURSE_STAGES[key], best = courseBest(key), passed = coursePassed(key);
+    return `<button class="grule" onclick="startSession('kanatest','${key}')">
+      <span class="lvltag">${passed ? "✅" : "✎"}</span>
+      <span class="grow"><span class="t">${esc(st.name)}</span><br>
+        <span class="m">${st.n} questions · pass at ${PASS_MARK}%</span></span>
+      <span class="mastery num">${best ? "best " + best + "%" : "—"}</span></button>`;
+  }).join("");
+  const gateNote = `${coursePassed("hira") ? "✅" : "⬜"} hiragana ${coursePassed("kata") ? "· ✅" : "· ⬜"} katakana`;
   const toc = R.sections.map((s, i) =>
     `<button class="grule" onclick="document.getElementById('rs${i}').scrollIntoView({behavior:'smooth'})">
       <span class="grow"><span class="t">${esc(s.h)}</span></span><span class="num">›</span></button>`).join("");
@@ -748,6 +819,12 @@ function renderReadingPlan() {
     <button class="back" onclick="renderGrammarList()">← All rules</button>
     <h2>${esc(R.title)}</h2>
     <div class="card"><p class="tp" style="margin:0">${esc(R.intro)}</p></div>
+    <h3>Exercises &amp; tests</h3>
+    <div class="card">
+      <p class="sub" style="margin-top:0">Each test asks characters in both directions (character → reading and reading → character; kanji also ask meanings). Mistakes show the answer with audio.
+      <b>Passing a script test changes your vocabulary exercises:</b> romaji disappears for that script, so from then on you practice words by reading the kana itself. Status: ${gateNote}.</p>
+      ${tests}
+    </div>
     <h3>Contents</h3>
     <div class="card">${toc}</div>
     ${body}
@@ -758,4 +835,33 @@ function renderReadingPlan() {
       <button class="btn ghost" style="margin-top:10px" onclick="startSession('mix')">Start a practice session</button>
     </div>`;
   window.scrollTo(0, 0);
+}
+
+/* ---------- READING COURSE TESTS & VOCAB GATING ---------- */
+const COURSE_STAGES = {
+  hira:  { name: "Hiragana basics",   n: 20 },
+  hiraM: { name: "Hiragana voiced & combos", n: 20 },
+  kata:  { name: "Katakana basics",   n: 20 },
+  kataM: { name: "Katakana voiced & extended", n: 20 },
+  kanji: { name: "First 40 kanji",    n: 20 }
+};
+const PASS_MARK = 90;
+function courseBest(key) { return (P().course || {})[key] || 0; }
+function coursePassed(key) { return courseBest(key) >= PASS_MARK; }
+function setCourseBest(key, acc) {
+  P().course = P().course || {};
+  if (acc > courseBest(key)) P().course[key] = acc;
+  save();
+}
+function hasKatakana(w) { return /[\u30A1-\u30FA\u30FC]/.test(w); }
+/* the dependency: romaji is shown in vocabulary exercises ONLY until the
+   corresponding script test is passed — then you must read the kana */
+function needsRomaji(v) {
+  if (S.lang !== "ja" || !v.r) return false;
+  return hasKatakana(v.w) ? !coursePassed("kata") : !coursePassed("hira");
+}
+function pickKanaQs(key, n) {
+  if (typeof KANA_EX === "undefined") return [];
+  return shuffle(KANA_EX[key].slice()).slice(0, n)
+    .map(pair => ({ kind: "kana", pair, key }));
 }
